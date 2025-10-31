@@ -34,29 +34,18 @@ export const createStockAlert = async (
 
     await connectToDatabase();
 
-    await StockAlertModel.updateOne(
-      {
-        userId: session.user.id,
-        email: session.user.email,
-        symbol: cleanSymbol,
-        direction,
-        thresholdPercent: pct,
-      },
-      {
-        $setOnInsert: {
-          userId: session.user.id,
-          email: session.user.email,
-          symbol: cleanSymbol,
-          direction,
-          thresholdPercent: pct,
-          active: true,
-          createdAt: new Date(),
-          lastNotifiedAt: null,
-        } as Partial<StockAlert>,
-        $set: { active: true },
-      },
-      { upsert: true }
-    );
+    // Replace any existing alerts for this symbol to keep a single active alert per symbol
+    await StockAlertModel.deleteMany({ userId: session.user.id, symbol: cleanSymbol });
+    await StockAlertModel.create({
+      userId: session.user.id,
+      email: session.user.email,
+      symbol: cleanSymbol,
+      direction,
+      thresholdPercent: pct,
+      active: true,
+      createdAt: new Date(),
+      lastNotifiedAt: null,
+    } as Partial<StockAlert>);
 
     revalidatePath('/watchlist');
     return { success: true, message: 'Alert created' };
