@@ -1,10 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { middleware } from './middleware/index';
 
-// Simplified middleware: let requests pass through.
-// Page-level guards (server actions/pages) will handle auth redirects.
-export async function middleware(_request: NextRequest) {
-  return NextResponse.next();
-}
+export { middleware };
 
 export const config = {
   matcher: [
