@@ -8,6 +8,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {useRouter} from "next/navigation";
+import Link from "next/link";
 import {Button} from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {LogOut} from "lucide-react";
@@ -16,6 +17,9 @@ import {signOut} from "@/lib/actions/auth.actions";
 
 const UserDropdown = ({ user, initialStocks }: {user: User, initialStocks: StockWithWatchlistStatus[]}) => {
     const router = useRouter();
+
+    const avatarSrc = (user as any)?.image || '';
+    const initialLetter = (user?.name || 'U').charAt(0);
 
     const handleSignOut = async () => {
         await signOut();
@@ -27,9 +31,9 @@ const UserDropdown = ({ user, initialStocks }: {user: User, initialStocks: Stock
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-3 text-gray-400 hover:text-blue-500">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src="https://github.com/shadcn.png" />
+                        {avatarSrc ? <AvatarImage src={avatarSrc} /> : null}
                         <AvatarFallback className="bg-blue-500 text-blue-900 text-sm font-bold">
-                            {user.name[0]}
+                            {initialLetter}
                         </AvatarFallback>
                     </Avatar>
                     <div className="hidden md:flex flex-col items-start">
@@ -43,9 +47,9 @@ const UserDropdown = ({ user, initialStocks }: {user: User, initialStocks: Stock
                 <DropdownMenuLabel>
                     <div className="flex relative items-center gap-3 py-2">
                         <Avatar className="h-10 w-10">
-                            <AvatarImage src="https://github.com/shadcn.png" />
+                            {avatarSrc ? <AvatarImage src={avatarSrc} /> : null}
                             <AvatarFallback className="bg-blue-500 text-blue-900 text-sm font-bold">
-                                {user.name[0]}
+                                {initialLetter}
                             </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
@@ -57,6 +61,9 @@ const UserDropdown = ({ user, initialStocks }: {user: User, initialStocks: Stock
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-gray-600" />
+                <DropdownMenuItem asChild className="text-gray-100 text-md font-medium focus:bg-transparent focus:text-blue-500 transition-colors cursor-pointer">
+                    <Link href="/settings/profile">Profile settings</Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleSignOut} className="text-gray-100 text-md font-medium focus:bg-transparent focus:text-blue-500 transition-colors cursor-pointer">
                     <LogOut className="h-4 w-4 mr-2 hidden sm:block" />
                     Logout
