@@ -29,7 +29,7 @@ export const createStockAlert = async (
     const pct = Number(thresholdPercent);
     if (!cleanSymbol) return { success: false, message: 'Symbol is required' };
     if (!['UP', 'DOWN'].includes(direction)) return { success: false, message: 'Invalid direction' };
-    if (Number.isNaN(pct) || pct <= 0 || pct > 100)
+    if (Number.isNaN(pct) || pct < 0.1 || pct > 100)
       return { success: false, message: 'Threshold must be between 0.1 and 100' };
 
     await connectToDatabase();
@@ -94,7 +94,7 @@ export const updateStockAlert = async (
     const pct = Number(thresholdPercent);
     if (!cleanSymbol) return { success: false, message: 'Symbol is required' };
     if (!['UP', 'DOWN'].includes(direction)) return { success: false, message: 'Invalid direction' };
-    if (Number.isNaN(pct) || pct <= 0 || pct > 100)
+    if (Number.isNaN(pct) || pct < 0.1 || pct > 100)
       return { success: false, message: 'Threshold must be between 0.1 and 100' };
 
     await connectToDatabase();

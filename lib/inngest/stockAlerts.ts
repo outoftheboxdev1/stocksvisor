@@ -42,7 +42,28 @@ export const checkStockAlerts = inngest.createFunction(
           if (trigger) {
             // Send email and deactivate alert
             await step.run(`email-${symbol}-${alert._id}`, async () => {
-              await sendStockAlertEmail({ email: alert.email, symbol, direction: alert.direction });
+              // Estimate previous close from current change percent to compute target price
+              const currentPrice = data?.currentPrice;
+              const changePercent = data?.changePercent ?? 0;
+              const prevClose = (typeof currentPrice === 'number' && isFinite(currentPrice))
+                ? currentPrice / (1 + (changePercent / 100))
+                : undefined;
+              const threshold = alert.thresholdPercent;
+              const targetPrice = (prevClose !== undefined)
+                ? (alert.direction === 'UP'
+                    ? prevClose * (1 + threshold / 100)
+                    : prevClose * (1 - threshold / 100))
+                : undefined;
+
+              await sendStockAlertEmail({
+                email: alert.email,
+                symbol,
+                direction: alert.direction,
+                company: data?.company,
+                timestamp: new Date(),
+                currentPrice,
+                targetPrice,
+              });
             });
 
             await step.run(`deactivate-${alert._id}`, async () => {
