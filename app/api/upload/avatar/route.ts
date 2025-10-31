@@ -96,29 +96,41 @@ export async function POST(request: Request) {
     const publicDir = path.join(process.cwd(), 'public');
     const avatarsDir = path.join(publicDir, 'avatars');
 
+    let urlPath: string | null = null;
+
     try {
       await fs.mkdir(avatarsDir, { recursive: true });
-    } catch (e) {
-      // ignore if exists
+
+      // Cleanup: remove any previously uploaded avatars for this user so we don't keep old files
+      try {
+        const existing = await fs.readdir(avatarsDir);
+        const toDelete = existing.filter(
+          (n) => n.startsWith(`${session.user.id}-`) || n.startsWith(`${session.user.id}.`)
+        );
+        await Promise.all(
+          toDelete.map((n) => fs.unlink(path.join(avatarsDir, n)).catch(() => {}))
+        );
+      } catch {
+        // ignore cleanup errors
+      }
+
+      // Attempt to persist on disk (works on environments with writable FS)
+      const filePath = path.join(avatarsDir, fileName);
+      await fs.writeFile(filePath, buffer);
+      urlPath = `/avatars/${fileName}`;
+    } catch (writeErr) {
+      // Production fallback: some platforms (e.g., serverless) have read-only FS.
+      // Return a base64 data URL so the client can still save and display the avatar.
+      try {
+        const mime = detectedFormat === 'png' ? 'image/png' : detectedFormat === 'jpeg' ? 'image/jpeg' : 'image/webp';
+        const base64 = buffer.toString('base64');
+        urlPath = `data:${mime};base64,${base64}`;
+        console.warn('Avatar persisted as data URL due to FS write restrictions');
+      } catch (fallbackErr) {
+        console.error('avatar upload failed (fallback error)', fallbackErr);
+        return NextResponse.json({ success: false, message: 'Upload failed' }, { status: 500 });
+      }
     }
-
-    // Cleanup: remove any previously uploaded avatars for this user so we don't keep old files
-    try {
-      const existing = await fs.readdir(avatarsDir);
-      const toDelete = existing.filter(
-        (n) => n.startsWith(`${session.user.id}-`) || n.startsWith(`${session.user.id}.`)
-      );
-      await Promise.all(
-        toDelete.map((n) => fs.unlink(path.join(avatarsDir, n)).catch(() => {}))
-      );
-    } catch (e) {
-      // ignore cleanup errors
-    }
-
-    const filePath = path.join(avatarsDir, fileName);
-    await fs.writeFile(filePath, buffer);
-
-    const urlPath = `/avatars/${fileName}`;
 
     return NextResponse.json({ success: true, url: urlPath });
   } catch (e) {
