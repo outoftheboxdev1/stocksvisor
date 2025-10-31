@@ -209,10 +209,10 @@
         @apply text-gray-400 font-medium hover:text-purple-400 hover:underline transition-colors;
     }
     .search-text {
-        @apply cursor-pointer hover:text-yellow-500;
+        @apply cursor-pointer hover:text-blue-500;
     }
     .search-btn {
-        @apply cursor-pointer px-4 py-2 w-fit flex items-center gap-2 text-sm md:text-base bg-yellow-500 hover:bg-yellow-500 text-black font-medium rounded;
+        @apply cursor-pointer px-4 py-2 w-fit flex items-center gap-2 text-sm md:text-base bg-blue-500 hover:bg-blue-500 text-black font-medium rounded;
     }
     .search-dialog {
         @apply !bg-gray-800 lg:min-w-[800px] border-gray-600 fixed top-10 left-1/2 -translate-x-1/2 translate-y-10;
@@ -254,7 +254,7 @@
         @apply w-full grid-cols-1 gap-6 xl:grid-cols-3 space-y-6 sm:space-y-8;
     }
     .watchlist-btn {
-        @apply bg-yellow-500 text-base hover:bg-yellow-500 text-gray-900 w-full rounded h-11 font-semibold cursor-pointer;
+        @apply bg-blue-500 text-base hover:bg-blue-500 text-gray-900 w-full rounded h-11 font-semibold cursor-pointer;
     }
     .watchlist-remove {
         @apply bg-red-500! hover:bg-red-500! text-gray-900!
