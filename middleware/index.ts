@@ -5,7 +5,8 @@ export async function middleware(request: NextRequest) {
     const sessionCookie = getSessionCookie(request);
 
     if (!sessionCookie) {
-        return NextResponse.redirect(new URL("/", request.url));
+        // If the user is not authenticated, send them to the sign-in page instead of home
+        return NextResponse.redirect(new URL("/sign-in", request.url));
     }
 
     return NextResponse.next();
