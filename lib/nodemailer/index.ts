@@ -117,7 +117,7 @@ export const sendStockAlertEmail = async (
         `Time: ${safeTimestamp}`,
         `Current Price: ${safeCurrent}`,
         `Target Price: ${safeTarget}`,
-        `\nManage alerts: ${unsubscribeUrl}`,
+        `\nManage alerts: ${manageUrl}`,
     ];
 
     const mailOptions = {
