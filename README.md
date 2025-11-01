@@ -2,7 +2,7 @@
 
 # ⚡ StocksVisor
 
-![Dashboard Overview](blob:https://imgur.com/e12b84b4-d6ae-49de-8ab8-74de19256224)
+![Dashboard Overview](https://i.imgur.com/dpwKSJ3.png)
 
 > **Your Smart Investment Companion** — Track stocks, get AI-powered insights, and receive real-time alerts tailored to your watchlist.  
 > *Stay ahead of the markets with precision.*
