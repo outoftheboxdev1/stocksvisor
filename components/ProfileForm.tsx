@@ -114,7 +114,6 @@ export default function ProfileForm({ initial }: { initial: ProfileInitial }) {
                 setDeleting(true);
                 const res = await deleteUserAccount();
                 if (!res?.success) throw new Error(res?.message || 'Failed to delete account');
-                // After deletion, sign out by navigating to sign-in
                 router.push('/sign-in');
               } catch (e) {
                 console.error(e);
