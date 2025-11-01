@@ -5,6 +5,8 @@ import { auth } from "@/lib/better-auth/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { Watchlist } from "@/database/models/watchlist.model";
+import { StockAlertModel } from "@/database/models/stockAlert.model";
 
 export const getAllUsersForNewsEmail = async () => {
     try {
@@ -113,6 +115,40 @@ export const updateUserProfile = async (params: { name?: string; imageUrl?: stri
     revalidatePath('/watchlist');
 
     return { success: true } as const;
+}
+
+export const deleteUserAccount = async (): Promise<{ success: boolean; message?: string }> => {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) redirect('/sign-in');
+
+    try {
+        const mongoose = await connectToDatabase();
+        const db = mongoose.connection.db;
+        if (!db) throw new Error('Mongoose connection not connected');
+
+        const userId = session.user.id;
+        const normalizedEmail = typeof session.user.email === 'string' ? session.user.email.trim().toLowerCase() : undefined;
+
+        // Remove related data first (best-effort)
+        await Promise.all([
+            Watchlist.deleteMany({ userId }),
+            StockAlertModel.deleteMany({ userId }),
+        ]);
+
+        // Delete user document by id or email
+        await db.collection('user').deleteOne({
+            $or: [ { id: userId }, ...(normalizedEmail ? [{ email: normalizedEmail }] as any[] : []) ]
+        });
+
+        // Revalidate UI where user data might appear
+        revalidatePath('/');
+        revalidatePath('/watchlist');
+
+        return { success: true };
+    } catch (e: any) {
+        console.error('deleteUserAccount error:', e);
+        return { success: false, message: e?.message || 'Failed to delete account' };
+    }
 }
 
 // Helper to check if we can send a given email category to this address

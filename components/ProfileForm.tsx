@@ -3,8 +3,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { updateUserProfile } from '@/lib/actions/user.actions';
+import { updateUserProfile, deleteUserAccount } from '@/lib/actions/user.actions';
 import { useRouter } from 'next/navigation';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type ProfileInitial = { name: string; email: string; image: string | null; dailyNews?: boolean };
 
@@ -15,6 +16,8 @@ export default function ProfileForm({ initial }: { initial: ProfileInitial }) {
   const [preview, setPreview] = useState<string | null>(initial.image || null);
   const [dailyNews, setDailyNews] = useState<boolean>(initial.dailyNews !== false);
   const [saving, setSaving] = useState<boolean>(false);
+  const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
+  const [deleting, setDeleting] = useState<boolean>(false);
 
   useEffect(() => {
     if (!file) return;
@@ -87,9 +90,45 @@ export default function ProfileForm({ initial }: { initial: ProfileInitial }) {
         <p className="text-xs text-gray-500">You can unsubscribe anytime from email footers.</p>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 items-center justify-between">
         <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</Button>
+        <Button type="button" variant="destructive" className="text-white" onClick={() => setConfirmOpen(true)}>
+          Delete account
+        </Button>
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Delete your account?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete your profile and associated data (watchlist and price alerts). This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" onClick={() => setConfirmOpen(false)} disabled={deleting}>
+              No, keep my account
+            </Button>
+            <Button type="button" variant="destructive" className="text-white" disabled={deleting} onClick={async () => {
+              try {
+                setDeleting(true);
+                const res = await deleteUserAccount();
+                if (!res?.success) throw new Error(res?.message || 'Failed to delete account');
+                // After deletion, sign out by navigating to sign-in
+                router.push('/sign-in');
+              } catch (e) {
+                console.error(e);
+                alert((e as any)?.message || 'Failed to delete account');
+              } finally {
+                setDeleting(false);
+                setConfirmOpen(false);
+              }
+            }}>
+              {deleting ? 'Deleting...' : 'Yes, delete my account'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }
