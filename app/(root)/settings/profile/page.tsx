@@ -8,8 +8,8 @@ export default async function ProfileSettingsPage() {
     <section className="p-6">
       <div className="max-w-3xl">
         <h1 className="text-2xl font-semibold text-gray-200 mb-2">Profile</h1>
-        <p className="text-gray-500 mb-6">Update your display name and profile picture.</p>
-        <ProfileForm initial={{ name: user.name, email: user.email, image: user.image }} />
+        <p className="text-gray-500 mb-6">Update your display name, profile picture, and email preferences.</p>
+        <ProfileForm initial={{ name: user.name, email: user.email, image: user.image, dailyNews: user?.emailPrefs?.dailyNews !== false }} />
       </div>
     </section>
   );

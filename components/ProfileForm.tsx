@@ -6,11 +6,14 @@ import { Button } from '@/components/ui/button';
 import { updateUserProfile } from '@/lib/actions/user.actions';
 import { useRouter } from 'next/navigation';
 
-export default function ProfileForm({ initial }: { initial: { name: string; email: string; image: string | null } }) {
+type ProfileInitial = { name: string; email: string; image: string | null; dailyNews?: boolean };
+
+export default function ProfileForm({ initial }: { initial: ProfileInitial }) {
   const router = useRouter();
   const [name, setName] = useState<string>(initial.name || '');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(initial.image || null);
+  const [dailyNews, setDailyNews] = useState<boolean>(initial.dailyNews !== false);
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
@@ -40,7 +43,7 @@ export default function ProfileForm({ initial }: { initial: { name: string; emai
         imageUrl = data.url as string;
       }
 
-      const result = await updateUserProfile({ name, imageUrl });
+      const result = await updateUserProfile({ name, imageUrl, dailyNews });
       if (!result?.success) throw new Error(result?.message || 'Failed to save');
 
       router.refresh();
@@ -69,6 +72,19 @@ export default function ProfileForm({ initial }: { initial: { name: string; emai
           <Input type="file" accept="image/png,image/jpeg,image/webp" onChange={onFileChange} />
         </div>
         <p className="text-xs text-gray-500">PNG, JPG, or WEBP. Max 2MB.</p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={dailyNews}
+            onChange={(e) => setDailyNews(e.target.checked)}
+          />
+          Receive daily market news emails
+        </label>
+        <p className="text-xs text-gray-500">You can unsubscribe anytime from email footers.</p>
       </div>
 
       <div className="flex gap-3">

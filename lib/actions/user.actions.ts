@@ -12,9 +12,16 @@ export const getAllUsersForNewsEmail = async () => {
         const db = mongoose.connection.db;
         if(!db) throw new Error('Mongoose connection not connected');
 
+        // Only include users who have not globally unsubscribed and have dailyNews enabled (default true)
         const users = await db.collection('user').find(
-            { email: { $exists: true, $ne: null }},
-            { projection: { _id: 1, id: 1, email: 1, name: 1, country:1 }}
+            {
+                email: { $exists: true, $ne: null },
+                $and: [
+                  { $or: [ { emailUnsubscribed: { $exists: false } }, { emailUnsubscribed: { $ne: true } } ] },
+                  { $or: [ { 'emailPrefs.dailyNews': { $exists: false } }, { 'emailPrefs.dailyNews': { $ne: false } } ] }
+                ]
+            },
+            { projection: { _id: 1, id: 1, email: 1, name: 1, country:1 } }
         ).toArray();
 
         return users.filter((user) => user.email && user.name).map((user) => ({
@@ -42,7 +49,7 @@ export const getCurrentUserProfile = async () => {
         // Try match by id first, then fall back to email in case IDs differ.
         const user = await db.collection('user').findOne(
             { $or: [ { id: session.user.id }, { email: session.user.email } ] },
-            { projection: { _id: 0, id: 1, email: 1, name: 1, image: 1 } }
+            { projection: { _id: 0, id: 1, email: 1, name: 1, image: 1, emailUnsubscribed: 1, emailPrefs: 1 } }
         );
 
         if (user) {
@@ -51,7 +58,9 @@ export const getCurrentUserProfile = async () => {
                 email: user.email || session.user.email,
                 name: (user.name as string) || '',
                 image: (user.image as string) || null,
-            } as { id: string; email: string; name: string; image: string | null };
+                emailUnsubscribed: !!(user as any).emailUnsubscribed,
+                emailPrefs: { dailyNews: (user as any)?.emailPrefs?.dailyNews !== false }
+            } as any;
         }
     } catch (err) {
         // Log and fall back to session values
@@ -64,17 +73,21 @@ export const getCurrentUserProfile = async () => {
         email: session.user.email,
         name: session.user.name || '',
         image: (session.user as any).image || null,
-    } as { id: string; email: string; name: string; image: string | null };
+        emailUnsubscribed: false,
+        emailPrefs: { dailyNews: true }
+    } as any;
 }
 
-export const updateUserProfile = async (params: { name?: string; imageUrl?: string }) => {
+export const updateUserProfile = async (params: { name?: string; imageUrl?: string; dailyNews?: boolean; unsubscribeAll?: boolean }) => {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) redirect('/sign-in');
 
     const name = typeof params?.name === 'string' ? params.name.trim() : undefined;
     const imageUrl = typeof params?.imageUrl === 'string' ? params.imageUrl.trim() : undefined;
+    const dailyNews = typeof params?.dailyNews === 'boolean' ? params.dailyNews : undefined;
+    const unsubscribeAll = params?.unsubscribeAll === true;
 
-    if (!name && !imageUrl) return { success: false, message: 'Nothing to update' } as const;
+    if (!name && !imageUrl && typeof dailyNews === 'undefined' && !unsubscribeAll) return { success: false, message: 'Nothing to update' } as const;
 
     const mongoose = await connectToDatabase();
     const db = mongoose.connection.db;
@@ -83,6 +96,8 @@ export const updateUserProfile = async (params: { name?: string; imageUrl?: stri
     const update: Record<string, any> = {};
     if (typeof name === 'string' && name.length > 0) update.name = name;
     if (typeof imageUrl === 'string' && imageUrl.length > 0) update.image = imageUrl;
+    if (typeof dailyNews !== 'undefined') update['emailPrefs.dailyNews'] = dailyNews;
+    if (unsubscribeAll) update['emailUnsubscribed'] = true;
 
     // Update by id OR email to handle cases where user doc may not have id populated.
     await db.collection('user').updateOne(
@@ -96,4 +111,24 @@ export const updateUserProfile = async (params: { name?: string; imageUrl?: stri
     revalidatePath('/watchlist');
 
     return { success: true } as const;
+}
+
+// Helper to check if we can send a given email category to this address
+export const canSendEmail = async (email: string, category?: 'news' | 'alerts' | 'other') => {
+    try {
+        const mongoose = await connectToDatabase();
+        const db = mongoose.connection.db;
+        if (!db) throw new Error('DB not connected');
+        const user = await db.collection('user').findOne({ email: email.toLowerCase() }, { projection: { emailUnsubscribed: 1, emailPrefs: 1 } });
+        const unsub = !!(user as any)?.emailUnsubscribed;
+        if (unsub) return false;
+        if (category === 'news') {
+            const dailyNewsPref = (user as any)?.emailPrefs?.dailyNews;
+            if (dailyNewsPref === false) return false;
+        }
+        return true;
+    } catch (e) {
+        // On errors, be conservative and allow sends to avoid silent drops when DB is unavailable
+        return true;
+    }
 }
