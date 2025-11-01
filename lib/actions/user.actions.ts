@@ -5,6 +5,10 @@ import { auth } from "@/lib/better-auth/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { Watchlist } from "@/database/models/watchlist.model";
+import { StockAlertModel } from "@/database/models/stockAlert.model";
+import path from "path";
+import { promises as fs } from "fs";
 
 export const getAllUsersForNewsEmail = async () => {
     try {
@@ -113,6 +117,82 @@ export const updateUserProfile = async (params: { name?: string; imageUrl?: stri
     revalidatePath('/watchlist');
 
     return { success: true } as const;
+}
+
+export const deleteUserAccount = async (): Promise<{ success: boolean; message?: string }> => {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) redirect('/sign-in');
+
+    try {
+        const mongoose = await connectToDatabase();
+        const db = mongoose.connection.db;
+        if (!db) throw new Error('Mongoose connection not connected');
+
+        const userId = session.user.id;
+        const normalizedEmail = typeof session.user.email === 'string' ? session.user.email.trim().toLowerCase() : undefined;
+
+        let usedTransaction = false;
+        const ms = await mongoose.startSession();
+        try {
+            await ms.withTransaction(async () => {
+                // Delete related docs and the user atomically within a transaction
+                await Watchlist.deleteMany({ userId }).session(ms);
+                await StockAlertModel.deleteMany({ userId }).session(ms);
+                await db.collection('user').deleteOne({
+                    $or: [ { id: userId }, ...(normalizedEmail ? [{ email: normalizedEmail }] as any[] : []) ]
+                }, { session: ms });
+            }, { writeConcern: { w: 'majority' } as any });
+            usedTransaction = true;
+        } catch (txErr: any) {
+            // If transactions are not supported (standalone server), fall back to non-transactional deletes
+            const msg: string = txErr?.message || '';
+            const isNoTxnSupport = txErr?.code === 20 || /replica set|transaction numbers are only allowed/i.test(msg);
+            if (!isNoTxnSupport) {
+                throw txErr;
+            }
+            // Fallback (best-effort) without session
+            await Promise.all([
+                Watchlist.deleteMany({ userId }),
+                StockAlertModel.deleteMany({ userId }),
+            ]);
+            await db.collection('user').deleteOne({
+                $or: [ { id: userId }, ...(normalizedEmail ? [{ email: normalizedEmail }] as any[] : []) ]
+            });
+        } finally {
+            // Ensure the session is always ended
+            try { await ms.endSession(); } catch {}
+        }
+
+        // Best-effort: Remove user's avatar file(s) from public/avatars
+        try {
+            const publicDir = path.join(process.cwd(), 'public');
+            const avatarsDir = path.join(publicDir, 'avatars');
+            const entries = await fs.readdir(avatarsDir).catch(() => [] as string[]);
+            if (Array.isArray(entries) && entries.length) {
+                const toDelete = entries.filter((n) =>
+                    typeof n === 'string' && (n.startsWith(`${userId}-`) || n.startsWith(`${userId}.`))
+                );
+                await Promise.all(
+                    toDelete.map((name) => fs.unlink(path.join(avatarsDir, name)).catch(() => {}))
+                );
+            }
+        } catch (fsErr) {
+            // Ignore file system errors; account deletion should not fail due to avatar cleanup
+            console.warn('Avatar cleanup failed', fsErr);
+        }
+
+        // Invalidate Better Auth session to revoke cookies before UI revalidation
+        await auth.api.signOut({ headers: await headers() });
+
+        // Revalidate UI where user data might appear
+        revalidatePath('/');
+        revalidatePath('/watchlist');
+
+        return { success: true };
+    } catch (e: any) {
+        console.error('deleteUserAccount error:', e);
+        return { success: false, message: e?.message || 'Failed to delete account' };
+    }
 }
 
 // Helper to check if we can send a given email category to this address
