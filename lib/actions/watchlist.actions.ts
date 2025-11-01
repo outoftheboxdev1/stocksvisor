@@ -10,7 +10,8 @@ import { redirect } from 'next/navigation';
 import {getStocksDetails} from "@/lib/actions/finnhub.actions";
 
 export async function getWatchlistSymbolsByEmail(email: string): Promise<string[]> {
-    if (!email) return [];
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!cleanEmail) return [];
 
     try {
         const mongoose = await connectToDatabase();
@@ -18,7 +19,7 @@ export async function getWatchlistSymbolsByEmail(email: string): Promise<string[
         if (!db) throw new Error('MongoDB connection not found');
 
         // Better Auth stores users in the "user" collection
-        const user = await db.collection('user').findOne<{ _id?: unknown; id?: string; email?: string }>({ email });
+        const user = await db.collection('user').findOne<{ _id?: unknown; id?: string; email?: string }>({ email: cleanEmail });
 
         if (!user) return [];
 
