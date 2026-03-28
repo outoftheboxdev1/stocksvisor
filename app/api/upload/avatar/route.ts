@@ -119,17 +119,14 @@ export async function POST(request: Request) {
       await fs.writeFile(filePath, buffer);
       urlPath = `/avatars/${fileName}`;
     } catch (writeErr) {
-      // Production fallback: some platforms (e.g., serverless) have read-only FS.
-      // Return a base64 data URL so the client can still save and display the avatar.
-      try {
-        const mime = detectedFormat === 'png' ? 'image/png' : detectedFormat === 'jpeg' ? 'image/jpeg' : 'image/webp';
-        const base64 = buffer.toString('base64');
-        urlPath = `data:${mime};base64,${base64}`;
-        console.warn('Avatar persisted as data URL due to FS write restrictions');
-      } catch (fallbackErr) {
-        console.error('avatar upload failed (fallback error)', fallbackErr);
-        return NextResponse.json({ success: false, message: 'Upload failed' }, { status: 500 });
-      }
+      console.error('avatar upload failed to persist on disk', writeErr);
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Avatar uploads need persistent file storage in this environment. The image was not saved.',
+        },
+        { status: 503 }
+      );
     }
 
     return NextResponse.json({ success: true, url: urlPath });

@@ -43,6 +43,13 @@ export const getCurrentUserProfile = async () => {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) redirect('/sign-in');
 
+    const sanitizeProfileImage = (value: unknown) => {
+        if (typeof value !== 'string') return null;
+        const trimmed = value.trim();
+        if (!trimmed || trimmed.startsWith('data:')) return null;
+        return trimmed;
+    };
+
     // Attempt to load the user record from the DB, but don't force-redirect
     // if it's missing. We'll gracefully fall back to the session values.
     try {
@@ -62,7 +69,7 @@ export const getCurrentUserProfile = async () => {
                 id: user.id || session.user.id,
                 email: user.email || session.user.email,
                 name: (user.name as string) || '',
-                image: (user.image as string) || null,
+                image: sanitizeProfileImage(user.image),
                 emailUnsubscribed: !!(user as any).emailUnsubscribed,
                 emailPrefs: { dailyNews: (user as any)?.emailPrefs?.dailyNews !== false }
             } as any;
@@ -77,7 +84,7 @@ export const getCurrentUserProfile = async () => {
         id: session.user.id,
         email: session.user.email,
         name: session.user.name || '',
-        image: (session.user as any).image || null,
+        image: sanitizeProfileImage((session.user as any).image),
         emailUnsubscribed: false,
         emailPrefs: { dailyNews: true }
     } as any;
@@ -93,6 +100,12 @@ export const updateUserProfile = async (params: { name?: string; imageUrl?: stri
     const unsubscribeAll = params?.unsubscribeAll === true;
 
     if (!name && !imageUrl && typeof dailyNews === 'undefined' && !unsubscribeAll) return { success: false, message: 'Nothing to update' } as const;
+    if (typeof imageUrl === 'string' && imageUrl.startsWith('data:')) {
+        return {
+            success: false,
+            message: 'Avatar uploads must be stored as files, not embedded data URLs.',
+        } as const;
+    }
 
     const mongoose = await connectToDatabase();
     const db = mongoose.connection.db;
