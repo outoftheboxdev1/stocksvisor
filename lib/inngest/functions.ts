@@ -4,12 +4,20 @@ import {sendNewsSummaryEmail, sendWelcomeEmail} from "@/lib/nodemailer";
 import {getAllUsersForNewsEmail} from "@/lib/actions/user.actions";
 import { getWatchlistSymbolsByEmail } from "@/lib/actions/watchlist.actions";
 import { getNews } from "@/lib/actions/finnhub.actions";
+import { ENABLE_DAILY_NEWS_SUMMARY, ENABLE_SIGNUP_EMAILS } from "@/lib/inngest/flags";
 import { getFormattedTodayDate } from "@/lib/utils";
 
 export const sendSignUpEmail = inngest.createFunction(
     { id: 'sign-up-email' },
     { event: 'app/user.created'},
     async ({ event, step }) => {
+        if (!ENABLE_SIGNUP_EMAILS) {
+            return {
+                success: true,
+                message: 'Welcome emails are disabled'
+            }
+        }
+
         const userProfile = `
             - Country: ${event.data.country}
             - Investment goals: ${event.data.investmentGoals}
@@ -52,6 +60,13 @@ export const sendDailyNewsSummary = inngest.createFunction(
     { id: 'daily-news-summary' },
     [ { event: 'app/send.daily.news' }, { cron: 'TZ=America/New_York 0 8 1 * *' } ],
     async ({ step }) => {
+        if (!ENABLE_DAILY_NEWS_SUMMARY) {
+            return {
+                success: true,
+                message: 'Daily news summary is disabled'
+            }
+        }
+
         // Step #1: Get all users for news delivery
         const users = await step.run('get-all-users', getAllUsersForNewsEmail)
 
@@ -98,7 +113,7 @@ export const sendDailyNewsSummary = inngest.createFunction(
                 const newsContent = (part && 'text' in part ? part.text : null) || 'No market news.'
 
                 userNewsSummaries.push({ user, newsContent });
-            } catch (e) {
+            } catch {
                 console.error('Failed to summarize news for : ', user.email);
                 userNewsSummaries.push({ user, newsContent: null });
             }

@@ -1,6 +1,7 @@
 import { inngest } from '@/lib/inngest/client';
 import { StockAlertModel } from '@/database/models/stockAlert.model';
 import { getStocksDetails } from '@/lib/actions/finnhub.actions';
+import { ENABLE_STOCK_ALERTS } from '@/lib/inngest/flags';
 import { sendStockAlertEmail } from '@/lib/nodemailer';
 import { connectToDatabase } from '@/database/mongoose';
 
@@ -18,6 +19,10 @@ export const checkStockAlerts = inngest.createFunction(
   { id: 'check-stock-alerts' },
   [ { event: 'app/check.stock.alerts' }, { cron: '*/10 * * * *' } ],
   async ({ step }) => {
+    if (!ENABLE_STOCK_ALERTS) {
+      return { success: true, message: 'Stock alerts are disabled' };
+    }
+
     const triggeredAlerts = await step.run('evaluate-active-alerts', async () => {
       await connectToDatabase();
 

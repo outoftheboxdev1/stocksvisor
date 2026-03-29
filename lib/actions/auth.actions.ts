@@ -2,13 +2,14 @@
 
 import {auth} from "@/lib/better-auth/auth";
 import {inngest} from "@/lib/inngest/client";
+import { ENABLE_SIGNUP_EMAILS } from "@/lib/inngest/flags";
 import {headers} from "next/headers";
 
 export const signUpWithEmail = async ({ email, password, fullName, country, investmentGoals, riskTolerance, preferredIndustry }: SignUpFormData) => {
     try {
         const response = await auth.api.signUpEmail({ body: { email, password, name: fullName } })
 
-        if(response) {
+        if(response && ENABLE_SIGNUP_EMAILS) {
             await inngest.send({
                 name: 'app/user.created',
                 data: { email, name: fullName, country, investmentGoals, riskTolerance, preferredIndustry }
